@@ -135,6 +135,32 @@ Counter CounterExpressionBuilder::subtract(Counter LHS, Counter RHS,
   return Simplify ? simplify(Cnt) : Cnt;
 }
 
+Counter CounterExpressionBuilder::replace(Counter C, const ReplaceMap &Map) {
+  auto I = Map.find(C);
+  if (I != Map.end())
+    return I->second;
+
+  if (!C.isExpression())
+    return C;
+
+  auto CE = Expressions[C.getExpressionID()];
+  auto NewLHS = replace(CE.LHS, Map);
+  auto NewRHS = replace(CE.RHS, Map);
+  switch (CE.Kind) {
+  case CounterExpression::Subtract:
+    C = subtract(NewLHS, NewRHS);
+    break;
+  case CounterExpression::Add:
+    C = add(NewLHS, NewRHS);
+    break;
+  }
+
+  if ((I = Map.find(C)) != Map.end())
+    return I->second;
+
+  return C;
+}
+
 void CounterMappingContext::dump(const Counter &C, raw_ostream &OS) const {
   switch (C.getKind()) {
   case Counter::Zero:
