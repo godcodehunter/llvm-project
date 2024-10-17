@@ -34,6 +34,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -213,6 +214,9 @@ public:
   /// Return a counter that represents the expression that subtracts RHS from
   /// LHS.
   Counter subtract(Counter LHS, Counter RHS, bool Simplify = true);
+
+  using ReplaceMap = std::map<Counter, Counter>;
+  Counter replace(Counter C, const ReplaceMap &Map);
 };
 
 using LineColPair = std::pair<unsigned, unsigned>;
