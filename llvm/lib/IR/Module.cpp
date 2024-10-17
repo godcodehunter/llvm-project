@@ -71,11 +71,15 @@ template class llvm::SymbolTableListTraits<GlobalIFunc>;
 // Primitive Module methods.
 //
 
-Module::Module(StringRef MID, LLVMContext &C)
+Module::Module(StringRef MID, LLVMContext &C) : Module(nullptr, MID, C) {}
+
+Module::Module(const Caller *Caller, StringRef ModuleID, LLVMContext &C)
     : Context(C), ValSymTab(std::make_unique<ValueSymbolTable>(-1)),
       ModuleID(std::string(MID)), SourceFileName(std::string(MID)), DL(""),
       IsNewDbgInfoFormat(UseNewDbgInfoFormat) {
   Context.addModule(this);
+
+  GLOBAL_OBSERVER.createModule(this, Caller)
 }
 
 Module::~Module() {
@@ -174,7 +178,7 @@ FunctionCallee Module::getOrInsertFunction(StringRef Name, FunctionType *Ty,
     // Nope, add it
     Function *New = Function::Create(Ty, GlobalVariable::ExternalLinkage,
                                      DL.getProgramAddressSpace(), Name, this);
-    if (!New->isIntrinsic())       // Intrinsics get attrs set on construction
+    if (!New->isIntrinsic()) // Intrinsics get attrs set on construction
       New->setAttributes(AttributeList);
     return {Ty, New}; // Return the new prototype.
   }
@@ -208,7 +212,7 @@ Function *Module::getFunction(StringRef Name) const {
 GlobalVariable *Module::getGlobalVariable(StringRef Name,
                                           bool AllowLocal) const {
   if (GlobalVariable *Result =
-      dyn_cast_or_null<GlobalVariable>(getNamedValue(Name)))
+          dyn_cast_or_null<GlobalVariable>(getNamedValue(Name)))
     if (AllowLocal || !Result->hasLocalLinkage())
       return Result;
   return nullptr;
@@ -311,10 +315,11 @@ bool Module::isValidModuleFlag(const MDNode &ModFlag, ModFlagBehavior &MFB,
 }
 
 /// getModuleFlagsMetadata - Returns the module flags in the provided vector.
-void Module::
-getModuleFlagsMetadata(SmallVectorImpl<ModuleFlagEntry> &Flags) const {
+void Module::getModuleFlagsMetadata(
+    SmallVectorImpl<ModuleFlagEntry> &Flags) const {
   const NamedMDNode *ModFlags = getModuleFlagsMetadata();
-  if (!ModFlags) return;
+  if (!ModFlags)
+    return;
 
   for (const MDNode *Flag : ModFlags->operands()) {
     ModFlagBehavior MFB;
@@ -409,9 +414,7 @@ void Module::setModuleFlag(ModFlagBehavior Behavior, StringRef Key,
   setModuleFlag(Behavior, Key, ConstantInt::get(Int32Ty, Val));
 }
 
-void Module::setDataLayout(StringRef Desc) {
-  DL.reset(Desc);
-}
+void Module::setDataLayout(StringRef Desc) { DL.reset(Desc); }
 
 void Module::setDataLayout(const DataLayout &Other) { DL = Other; }
 
